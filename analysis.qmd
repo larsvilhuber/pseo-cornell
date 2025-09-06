@@ -1,0 +1,258 @@
+---
+title: "New York PSEO Earnings Analysis"
+author: "Analysis Report"
+format: html
+editor: visual
+---
+
+## Introduction
+
+This document analyzes earnings data from the U.S. Census Bureau's Post-Secondary Employment Outcomes (PSEO) dataset for New York state. The analysis focuses on institutional data and earnings outcomes for economics graduates at the bachelor level.
+
+```{r setup, include=FALSE}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(tidylog)
+# Set global options
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+basedir <- here::here()
+dataraw <- file.path(basedir,"data","raw")
+datagen <- file.path(basedir,"data","generated")
+# Create directories if they do not exist
+dirs <- c(dataraw, datagen)
+invisible(lapply(dirs, function(d) if (!dir.exists(d)) dir.create(d, recursive = TRUE)))
+```
+
+
+
+## Data Setup
+
+```{r data-setup}
+# Constants
+STATE <- "ny"
+BASE_URL <- "https://lehd.ces.census.gov/data/pseo/latest_release/"
+SCHEMA_URL <- "https://lehd.ces.census.gov/data/schema/latest/"
+
+# Read New York earnings data (gzipped CSV)
+earnings_url_ny <- paste0(BASE_URL, STATE, "/pseoe_", STATE, ".csv.gz")
+newyork_earnings <- read_csv(earnings_url_ny, 
+                            col_types = cols(
+                              institution = col_character(),
+                              degree_level = col_character(),
+                              cipcode = col_character(),
+                              grad_cohort = col_character()
+                            ))
+
+
+
+
+```
+
+
+## Part 1: Economics Graduates Earnings Analysis for NY institutions
+
+Definitions from [PSEO](https://lehd.ces.census.gov/data/pseo_documentation.html#earnings):
+
+### Year Post-Graduation
+
+For all post-secondary graduates, the first year post-graduation is defined as the first calendar year following their graduation year. So for a student who graduates in May of 2005, year one begins in January of 2006, year five in January 2010, etc.
+
+### Earnings
+
+Earnings are total annual earnings for attached workers from all jobs, converted to 2022 dollars using the CPI-U. For the annual earnings tabulations, we impose two labor force attachment restrictions. First, we drop graduates who earn less than the annual equivalent of full-time work at the prevailing federal minimum wage. Additionally, we drop graduates with two or more quarters with no earnings in the reference year. These workers are likely to be either marginally attached to the labor force or employed in non-covered employment.
+
+Graduate Earnings are available at the 25th, 50th, and 75th percentiles, one, five, and 10 years after graduation.
+
+> In the following, I focus on Year 1 earnings at the median.
+
+```{r schemas}
+# Read institution labels from schema
+label_url <- paste0(SCHEMA_URL, "label_institution.csv")
+institution_labels <- read_csv(label_url, 
+                              col_types = cols(institution = col_character()))
+
+# Read degree level schema
+degree_level_schema <- read_csv(paste0(SCHEMA_URL, "label_degree_level.csv"),
+                               col_types = cols(.default = col_character()))
+
+# Read CIP code schema
+cip_schema <- read_csv(paste0(SCHEMA_URL, "label_cipcode.csv"),
+                      col_types = cols(.default = col_character()))
+
+# Read Status code schema
+status_schema <- read_csv(paste0(SCHEMA_URL, "label_flags.csv"),
+             col_types = cols(.default = col_character()))
+
+cat("Degree level 05 corresponds to:", 
+    degree_level_schema$label[degree_level_schema$degree_level == "05"], "\n")
+cat("CIP code 45.06 corresponds to:", 
+    cip_schema$label[cip_schema$cipcode == "45.06"], "\n")
+```
+
+```{r economics-analysis}
+# Filter for Economics graduates at bachelor level (degree level 05)
+# Using strict Economics CIP code '45.06'
+econ_cip_codes <- "45.06"
+
+all_newyork_grads <- newyork_earnings %>%
+  filter(degree_level == "05",
+         cipcode %in% econ_cip_codes) %>%
+  # add flags
+  mutate(flag = as.character(status_y1_earnings)) %>%
+  left_join(status_schema) %>%
+  rename(flag_y1_earnings = label) %>%
+  # Add institution names
+  left_join(institution_labels, by = "institution") %>%
+  rename(`Institution Name` = label) %>%
+  select(`Institution Name`,y1_p50_earnings, degree_level, cipcode, grad_cohort, 
+         y1_grads_earn, flag_y1_earnings, institution)
+
+kable(all_newyork_grads |> filter(grad_cohort==2019), caption = "50th Percentile Earnings for NY Economics Graduates (Bachelor Level, 2019 cohort)")
+```
+
+
+```{r plot, fig.width=10, fig.height=6}
+# Create line plot showing earnings trends over graduation cohorts, by Institution Name, if institution != 36. All colors should be gray, not included in legend. Overplot with a line plot if institution == 36, in dark blue.
+
+# Plot all institutions except institution == 36 in gray
+ggplot() +
+  geom_line(
+    data = all_newyork_grads %>% filter(institution != "36"),
+    aes(x = grad_cohort, y = y1_p50_earnings, group = `Institution Name`),
+    color = "gray70", size = 1, show.legend = FALSE
+  ) +
+  # Overplot institution == 36 in dark blue
+  geom_line(
+    data = all_newyork_grads %>% filter(institution == "36"),
+    aes(x = grad_cohort, y = y1_p50_earnings, group = `Institution Name`),
+    color = "#003366", size = 1.5
+  ) +
+  geom_point(
+    data = all_newyork_grads %>% filter(institution == "36"),
+    aes(x = grad_cohort, y = y1_p50_earnings),
+    color = "#003366", size = 2
+  ) +
+  labs(
+    title = "50th Percentile Earnings for NY Economics Graduates by Institution, Year 1",
+    x = "Graduation Cohort",
+    y = "50th Percentile Earnings"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_line(color = "gray90")
+  ) +
+  scale_y_continuous(labels = scales::dollar_format())
+```
+
+## All peer institutions
+
+```{r cornellpeers}
+# Read in the ranks csv file with the top 30 institutions
+ranks_file <- file.path(basedir,"data","ranks.csv")
+top30_institutions <- read_csv(ranks_file, col_types = cols(.default = col_character()))
+
+# Split the Location field by comma into City and State
+if ("Location" %in% colnames(top30_institutions)) {
+  top30_institutions <- top30_institutions %>%
+    tidyr::separate(Location, into = c("City", "State"), sep = ",\\s*", remove = FALSE)
+} else {
+  error("Location field not found")
+}
+
+# Download earnings data for each state in the peer institutions list
+peer_earnings_file <- file.path(datagen, "peer_earnings.csv")
+peer_states <- unique(tolower(top30_institutions$State))
+peer_earnings_list <- list()
+
+if (!file.exists(peer_earnings_file)) {
+  for (state in peer_states) {
+    earnings_url <- paste0(BASE_URL, state, "/pseoe_", state, ".csv.gz")
+    message("Downloading: ", earnings_url)
+    # Download and concatenate earnings data for each state
+    peer_data <- tryCatch(
+      read_csv(earnings_url, 
+               col_types = cols(
+                 institution = col_character(),
+                 degree_level = col_character(),
+                 cipcode = col_character(),
+                 grad_cohort = col_character()
+               )),
+      error = function(e) {
+        message("Failed to download or read data for state: ", state)
+        NULL
+      }
+    )
+    if (exists("all_peer_earnings") && !is.null(peer_data)) {
+      all_peer_earnings <- bind_rows(all_peer_earnings, peer_data)
+    } else if (!exists("all_peer_earnings") && !is.null(peer_data)) {
+      all_peer_earnings <- peer_data
+    }
+  }
+} else {
+  message("Peer earnings file already exists: ", peer_earnings_file)
+  all_peer_earnings <- read_csv(peer_earnings_file, 
+                                col_types = cols(
+                                  institution = col_character(),
+                                  degree_level = col_character(),
+                                  cipcode = col_character(),
+                                  grad_cohort = col_character()
+                                ))
+}
+
+# Save the combined peer earnings data to the datagen directory
+if (exists("all_peer_earnings")) {
+  write_csv(all_peer_earnings, peer_earnings_file)
+  cat("Peer earnings data saved to:", peer_earnings_file, "\n")
+} else {
+  cat("No peer earnings data to save.\n")
+}
+
+# Merge institution labels into the ranks file
+top30_institutions_labeled <- top30_institutions %>%
+  left_join(institution_labels, by = c("University" = "label"))
+
+# Mark if each institution is present in the PSEO peer earnings data
+if (exists("all_peer_earnings")) {
+  peer_institutions <- unique(all_peer_earnings$institution)
+  top30_institutions_labeled <- top30_institutions_labeled %>%
+    mutate(PSEO = institution %in% peer_institutions)
+} else {
+  top30_institutions_labeled$PSEO <- FALSE
+}
+
+kable(top30_institutions_labeled %>% select(Rank, University, institution, PSEO), caption = "Peer Institutions and PSEO Data Availability")
+
+top30_institutions_pseo <- top30_institutions_labeled %>% filter(PSEO)
+
+```
+
+Only the following `r nrow(top30_institutions_pseo)` institutions are represented in PSEO:
+
+```{r pseotop30}
+kable(top30_institutions_pseo %>% select(Rank, University, institution, PSEO), caption = "Peer Institutions with PSEO Data Available")
+```
+
+
+---
+
+## Appendix: Institutional Analysis
+
+All institutions in the New York earnings data that are present in the PSEO data.
+
+```{r institutions}
+# Get all unique institutions in the data
+all_newyork_institutions <- newyork_earnings %>%
+  select(institution) %>%
+  distinct()
+
+# Merge to get institution names
+all_newyork_institutions <- all_newyork_institutions %>%
+  left_join(institution_labels, by = "institution")
+
+# Display all institutions
+cat("Total number of institutions in NY data:", nrow(all_newyork_institutions), "\n\n")
+kable(all_newyork_institutions, caption = "All New York Institutions in PSEO Data")
+```

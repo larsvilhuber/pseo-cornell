@@ -1,0 +1,1981 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.6.40">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Analysis Report">
+
+<title>New York PSEO Earnings Analysis</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="analysis_files/libs/clipboard/clipboard.min.js"></script>
+<script src="analysis_files/libs/quarto-html/quarto.js"></script>
+<script src="analysis_files/libs/quarto-html/popper.min.js"></script>
+<script src="analysis_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="analysis_files/libs/quarto-html/anchor.min.js"></script>
+<link href="analysis_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="analysis_files/libs/quarto-html/quarto-syntax-highlighting-549806ee2085284f45b00abea8c6df48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="analysis_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="analysis_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="analysis_files/libs/bootstrap/bootstrap-def314685997ae775ed87effcd90cd1a.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">New York PSEO Earnings Analysis</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Analysis Report </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="introduction" class="level2">
+<h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
+<p>This document analyzes earnings data from the U.S. Census Bureau’s Post-Secondary Employment Outcomes (PSEO) dataset for New York state. The analysis focuses on institutional data and earnings outcomes for economics graduates at the bachelor level.</p>
+</section>
+<section id="data-setup" class="level2">
+<h2 class="anchored" data-anchor-id="data-setup">Data Setup</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Constants</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>STATE <span class="ot">&lt;-</span> <span class="st">"ny"</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>BASE_URL <span class="ot">&lt;-</span> <span class="st">"https://lehd.ces.census.gov/data/pseo/latest_release/"</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>SCHEMA_URL <span class="ot">&lt;-</span> <span class="st">"https://lehd.ces.census.gov/data/schema/latest/"</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Read New York earnings data (gzipped CSV)</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>earnings_url_ny <span class="ot">&lt;-</span> <span class="fu">paste0</span>(BASE_URL, STATE, <span class="st">"/pseoe_"</span>, STATE, <span class="st">".csv.gz"</span>)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>newyork_earnings <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(earnings_url_ny, </span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>                            <span class="at">col_types =</span> <span class="fu">cols</span>(</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>                              <span class="at">institution =</span> <span class="fu">col_character</span>(),</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>                              <span class="at">degree_level =</span> <span class="fu">col_character</span>(),</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>                              <span class="at">cipcode =</span> <span class="fu">col_character</span>(),</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>                              <span class="at">grad_cohort =</span> <span class="fu">col_character</span>()</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>                            ))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="part-1-economics-graduates-earnings-analysis-for-ny-institutions" class="level2">
+<h2 class="anchored" data-anchor-id="part-1-economics-graduates-earnings-analysis-for-ny-institutions">Part 1: Economics Graduates Earnings Analysis for NY institutions</h2>
+<p>Definitions from <a href="https://lehd.ces.census.gov/data/pseo_documentation.html#earnings">PSEO</a>:</p>
+<section id="year-post-graduation" class="level3">
+<h3 class="anchored" data-anchor-id="year-post-graduation">Year Post-Graduation</h3>
+<p>For all post-secondary graduates, the first year post-graduation is defined as the first calendar year following their graduation year. So for a student who graduates in May of 2005, year one begins in January of 2006, year five in January 2010, etc.</p>
+</section>
+<section id="earnings" class="level3">
+<h3 class="anchored" data-anchor-id="earnings">Earnings</h3>
+<p>Earnings are total annual earnings for attached workers from all jobs, converted to 2022 dollars using the CPI-U. For the annual earnings tabulations, we impose two labor force attachment restrictions. First, we drop graduates who earn less than the annual equivalent of full-time work at the prevailing federal minimum wage. Additionally, we drop graduates with two or more quarters with no earnings in the reference year. These workers are likely to be either marginally attached to the labor force or employed in non-covered employment.</p>
+<p>Graduate Earnings are available at the 25th, 50th, and 75th percentiles, one, five, and 10 years after graduation.</p>
+<blockquote class="blockquote">
+<p>In the following, I focus on Year 1 earnings at the median.</p>
+</blockquote>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Read institution labels from schema</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>label_url <span class="ot">&lt;-</span> <span class="fu">paste0</span>(SCHEMA_URL, <span class="st">"label_institution.csv"</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>institution_labels <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(label_url, </span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>                              <span class="at">col_types =</span> <span class="fu">cols</span>(<span class="at">institution =</span> <span class="fu">col_character</span>()))</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Read degree level schema</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>degree_level_schema <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">paste0</span>(SCHEMA_URL, <span class="st">"label_degree_level.csv"</span>),</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>                               <span class="at">col_types =</span> <span class="fu">cols</span>(<span class="at">.default =</span> <span class="fu">col_character</span>()))</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Read CIP code schema</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>cip_schema <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">paste0</span>(SCHEMA_URL, <span class="st">"label_cipcode.csv"</span>),</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>                      <span class="at">col_types =</span> <span class="fu">cols</span>(<span class="at">.default =</span> <span class="fu">col_character</span>()))</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Read Status code schema</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>status_schema <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">paste0</span>(SCHEMA_URL, <span class="st">"label_flags.csv"</span>),</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>             <span class="at">col_types =</span> <span class="fu">cols</span>(<span class="at">.default =</span> <span class="fu">col_character</span>()))</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Degree level 05 corresponds to:"</span>, </span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    degree_level_schema<span class="sc">$</span>label[degree_level_schema<span class="sc">$</span>degree_level <span class="sc">==</span> <span class="st">"05"</span>], <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Degree level 05 corresponds to: Baccalaureate </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"CIP code 45.06 corresponds to:"</span>, </span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    cip_schema<span class="sc">$</span>label[cip_schema<span class="sc">$</span>cipcode <span class="sc">==</span> <span class="st">"45.06"</span>], <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>CIP code 45.06 corresponds to: Economics </code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Filter for Economics graduates at bachelor level (degree level 05)</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Using strict Economics CIP code '45.06'</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>econ_cip_codes <span class="ot">&lt;-</span> <span class="st">"45.06"</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>all_newyork_grads <span class="ot">&lt;-</span> newyork_earnings <span class="sc">%&gt;%</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(degree_level <span class="sc">==</span> <span class="st">"05"</span>,</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>         cipcode <span class="sc">%in%</span> econ_cip_codes) <span class="sc">%&gt;%</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="co"># add flags</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">flag =</span> <span class="fu">as.character</span>(status_y1_earnings)) <span class="sc">%&gt;%</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(status_schema) <span class="sc">%&gt;%</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">flag_y1_earnings =</span> label) <span class="sc">%&gt;%</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Add institution names</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(institution_labels, <span class="at">by =</span> <span class="st">"institution"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="st">`</span><span class="at">Institution Name</span><span class="st">`</span> <span class="ot">=</span> label) <span class="sc">%&gt;%</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="st">`</span><span class="at">Institution Name</span><span class="st">`</span>,y1_p50_earnings, degree_level, cipcode, grad_cohort, </span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>         y1_grads_earn, flag_y1_earnings, institution)</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(all_newyork_grads <span class="sc">|&gt;</span> <span class="fu">filter</span>(grad_cohort<span class="sc">==</span><span class="dv">2019</span>), <span class="at">caption =</span> <span class="st">"50th Percentile Earnings for NY Economics Graduates (Bachelor Level, 2019 cohort)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>50th Percentile Earnings for NY Economics Graduates (Bachelor Level, 2019 cohort)</caption>
+<colgroup>
+<col style="width: 24%">
+<col style="width: 7%">
+<col style="width: 6%">
+<col style="width: 3%">
+<col style="width: 5%">
+<col style="width: 6%">
+<col style="width: 39%">
+<col style="width: 5%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Institution Name</th>
+<th style="text-align: right;">y1_p50_earnings</th>
+<th style="text-align: left;">degree_level</th>
+<th style="text-align: left;">cipcode</th>
+<th style="text-align: left;">grad_cohort</th>
+<th style="text-align: right;">y1_grads_earn</th>
+<th style="text-align: left;">flag_y1_earnings</th>
+<th style="text-align: left;">institution</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Institutions in New York</td>
+<td style="text-align: right;">45084</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">3321</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CUNY Brooklyn College</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">Value suppressed because it does not meet US Census Bureau publication standards.</td>
+<td style="text-align: left;">00268700</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">City College of New York - CUNY</td>
+<td style="text-align: right;">48288</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">203</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00268800</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CUNY Hunter College</td>
+<td style="text-align: right;">45590</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">230</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00268900</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CUNY Queens College</td>
+<td style="text-align: right;">47162</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">635</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00269000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CUNY John Jay College of Criminal Justice</td>
+<td style="text-align: right;">39150</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">88</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00269300</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">College of Staten Island/CUNY</td>
+<td style="text-align: right;">44036</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00269800</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">State University of New York at Albany</td>
+<td style="text-align: right;">39559</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">428</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00283500</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Binghamton University</td>
+<td style="text-align: right;">48703</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">555</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00283600</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">State University of New York at Buffalo</td>
+<td style="text-align: right;">43784</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">180</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00283700</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">State University of New York at Stony Brook</td>
+<td style="text-align: right;">47550</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">284</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00283800</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">SUNY College at Buffalo</td>
+<td style="text-align: right;">40172</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00284200</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">SUNY College at Cortland</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">Value suppressed because it does not meet US Census Bureau publication standards.</td>
+<td style="text-align: left;">00284300</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">SUNY at Fredonia</td>
+<td style="text-align: right;">43671</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">33</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00284400</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">SUNY College at Geneseo</td>
+<td style="text-align: right;">49747</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">65</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00284500</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">State University of New York at New Paltz</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">Value suppressed because it does not meet US Census Bureau publication standards.</td>
+<td style="text-align: left;">00284600</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">State University of New York, College at Oneonta</td>
+<td style="text-align: right;">41196</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">30</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00284700</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">State University of New York at Oswego</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">Value suppressed because it does not meet US Census Bureau publication standards.</td>
+<td style="text-align: left;">00284800</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">State University of New York College at Plattsburgh</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">Value suppressed because it does not meet US Census Bureau publication standards.</td>
+<td style="text-align: left;">00284900</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">State University of New York College at Potsdam</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">Value suppressed because it does not meet US Census Bureau publication standards.</td>
+<td style="text-align: left;">00285000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">State University of New York at Farmingdale</td>
+<td style="text-align: right;">49747</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">37</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00285800</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CUNY York College</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">Value suppressed because it does not meet US Census Bureau publication standards.</td>
+<td style="text-align: left;">00475900</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">SUNY College at Purchase</td>
+<td style="text-align: right;">44718</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">50</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00679100</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CUNY Lehman College</td>
+<td style="text-align: right;">47119</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00702200</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CUNY Bernard M. Baruch College</td>
+<td style="text-align: right;">50727</td>
+<td style="text-align: left;">05</td>
+<td style="text-align: left;">45.06</td>
+<td style="text-align: left;">2019</td>
+<td style="text-align: right;">137</td>
+<td style="text-align: left;">OK</td>
+<td style="text-align: left;">00727300</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create line plot showing earnings trends over graduation cohorts, by Institution Name, if institution != 36. All colors should be gray, not included in legend. Overplot with a line plot if institution == 36, in dark blue.</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot all institutions except institution == 36 in gray</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> all_newyork_grads <span class="sc">%&gt;%</span> <span class="fu">filter</span>(institution <span class="sc">!=</span> <span class="st">"36"</span>),</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">aes</span>(<span class="at">x =</span> grad_cohort, <span class="at">y =</span> y1_p50_earnings, <span class="at">group =</span> <span class="st">`</span><span class="at">Institution Name</span><span class="st">`</span>),</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">color =</span> <span class="st">"gray70"</span>, <span class="at">size =</span> <span class="dv">1</span>, <span class="at">show.legend =</span> <span class="cn">FALSE</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Overplot institution == 36 in dark blue</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> all_newyork_grads <span class="sc">%&gt;%</span> <span class="fu">filter</span>(institution <span class="sc">==</span> <span class="st">"36"</span>),</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">aes</span>(<span class="at">x =</span> grad_cohort, <span class="at">y =</span> y1_p50_earnings, <span class="at">group =</span> <span class="st">`</span><span class="at">Institution Name</span><span class="st">`</span>),</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">color =</span> <span class="st">"#003366"</span>, <span class="at">size =</span> <span class="fl">1.5</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> all_newyork_grads <span class="sc">%&gt;%</span> <span class="fu">filter</span>(institution <span class="sc">==</span> <span class="st">"36"</span>),</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">aes</span>(<span class="at">x =</span> grad_cohort, <span class="at">y =</span> y1_p50_earnings),</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">color =</span> <span class="st">"#003366"</span>, <span class="at">size =</span> <span class="dv">2</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"50th Percentile Earnings for NY Economics Graduates by Institution, Year 1"</span>,</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Graduation Cohort"</span>,</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"50th Percentile Earnings"</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>),</span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.grid =</span> <span class="fu">element_line</span>(<span class="at">color =</span> <span class="st">"gray90"</span>)</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">dollar_format</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="analysis_files/figure-html/plot-1.png" class="img-fluid figure-img" width="960"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="all-peer-institutions" class="level2">
+<h2 class="anchored" data-anchor-id="all-peer-institutions">All peer institutions</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Read in the ranks csv file with the top 30 institutions</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>ranks_file <span class="ot">&lt;-</span> <span class="fu">file.path</span>(basedir,<span class="st">"data"</span>,<span class="st">"ranks.csv"</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>top30_institutions <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(ranks_file, <span class="at">col_types =</span> <span class="fu">cols</span>(<span class="at">.default =</span> <span class="fu">col_character</span>()))</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Split the Location field by comma into City and State</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="st">"Location"</span> <span class="sc">%in%</span> <span class="fu">colnames</span>(top30_institutions)) {</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  top30_institutions <span class="ot">&lt;-</span> top30_institutions <span class="sc">%&gt;%</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    tidyr<span class="sc">::</span><span class="fu">separate</span>(Location, <span class="at">into =</span> <span class="fu">c</span>(<span class="st">"City"</span>, <span class="st">"State"</span>), <span class="at">sep =</span> <span class="st">",</span><span class="sc">\\</span><span class="st">s*"</span>, <span class="at">remove =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">error</span>(<span class="st">"Location field not found"</span>)</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Download earnings data for each state in the peer institutions list</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>peer_earnings_file <span class="ot">&lt;-</span> <span class="fu">file.path</span>(datagen, <span class="st">"peer_earnings.csv"</span>)</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>peer_states <span class="ot">&lt;-</span> <span class="fu">unique</span>(<span class="fu">tolower</span>(top30_institutions<span class="sc">$</span>State))</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>peer_earnings_list <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">file.exists</span>(peer_earnings_file)) {</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (state <span class="cf">in</span> peer_states) {</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>    earnings_url <span class="ot">&lt;-</span> <span class="fu">paste0</span>(BASE_URL, state, <span class="st">"/pseoe_"</span>, state, <span class="st">".csv.gz"</span>)</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">message</span>(<span class="st">"Downloading: "</span>, earnings_url)</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Download and concatenate earnings data for each state</span></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>    peer_data <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>(</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>      <span class="fu">read_csv</span>(earnings_url, </span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>               <span class="at">col_types =</span> <span class="fu">cols</span>(</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>                 <span class="at">institution =</span> <span class="fu">col_character</span>(),</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>                 <span class="at">degree_level =</span> <span class="fu">col_character</span>(),</span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>                 <span class="at">cipcode =</span> <span class="fu">col_character</span>(),</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>                 <span class="at">grad_cohort =</span> <span class="fu">col_character</span>()</span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>               )),</span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>      <span class="at">error =</span> <span class="cf">function</span>(e) {</span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>        <span class="fu">message</span>(<span class="st">"Failed to download or read data for state: "</span>, state)</span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>        <span class="cn">NULL</span></span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (<span class="fu">exists</span>(<span class="st">"all_peer_earnings"</span>) <span class="sc">&amp;&amp;</span> <span class="sc">!</span><span class="fu">is.null</span>(peer_data)) {</span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>      all_peer_earnings <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(all_peer_earnings, peer_data)</span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> <span class="cf">if</span> (<span class="sc">!</span><span class="fu">exists</span>(<span class="st">"all_peer_earnings"</span>) <span class="sc">&amp;&amp;</span> <span class="sc">!</span><span class="fu">is.null</span>(peer_data)) {</span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a>      all_peer_earnings <span class="ot">&lt;-</span> peer_data</span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a>  <span class="fu">message</span>(<span class="st">"Peer earnings file already exists: "</span>, peer_earnings_file)</span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a>  all_peer_earnings <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(peer_earnings_file, </span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a>                                <span class="at">col_types =</span> <span class="fu">cols</span>(</span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">institution =</span> <span class="fu">col_character</span>(),</span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">degree_level =</span> <span class="fu">col_character</span>(),</span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">cipcode =</span> <span class="fu">col_character</span>(),</span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a>                                  <span class="at">grad_cohort =</span> <span class="fu">col_character</span>()</span>
+<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a>                                ))</span>
+<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-52"><a href="#cb8-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-53"><a href="#cb8-53" aria-hidden="true" tabindex="-1"></a><span class="co"># Save the combined peer earnings data to the datagen directory</span></span>
+<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">exists</span>(<span class="st">"all_peer_earnings"</span>)) {</span>
+<span id="cb8-55"><a href="#cb8-55" aria-hidden="true" tabindex="-1"></a>  <span class="fu">write_csv</span>(all_peer_earnings, peer_earnings_file)</span>
+<span id="cb8-56"><a href="#cb8-56" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">"Peer earnings data saved to:"</span>, peer_earnings_file, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb8-57"><a href="#cb8-57" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb8-58"><a href="#cb8-58" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">"No peer earnings data to save.</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb8-59"><a href="#cb8-59" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Peer earnings data saved to: /home/vilhuber/Workspace/Github/pseo-cornell/data/generated/peer_earnings.csv </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Merge institution labels into the ranks file</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>top30_institutions_labeled <span class="ot">&lt;-</span> top30_institutions <span class="sc">%&gt;%</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(institution_labels, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">"University"</span> <span class="ot">=</span> <span class="st">"label"</span>))</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Mark if each institution is present in the PSEO peer earnings data</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">exists</span>(<span class="st">"all_peer_earnings"</span>)) {</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  peer_institutions <span class="ot">&lt;-</span> <span class="fu">unique</span>(all_peer_earnings<span class="sc">$</span>institution)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  top30_institutions_labeled <span class="ot">&lt;-</span> top30_institutions_labeled <span class="sc">%&gt;%</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">PSEO =</span> institution <span class="sc">%in%</span> peer_institutions)</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  top30_institutions_labeled<span class="sc">$</span>PSEO <span class="ot">&lt;-</span> <span class="cn">FALSE</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(top30_institutions_labeled <span class="sc">%&gt;%</span> <span class="fu">select</span>(Rank, University, institution, PSEO), <span class="at">caption =</span> <span class="st">"Peer Institutions and PSEO Data Availability"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Peer Institutions and PSEO Data Availability</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Rank</th>
+<th style="text-align: left;">University</th>
+<th style="text-align: left;">institution</th>
+<th style="text-align: left;">PSEO</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">1</td>
+<td style="text-align: left;">Harvard University</td>
+<td style="text-align: left;">00215500</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">2</td>
+<td style="text-align: left;">Massachusetts Institute of Technology</td>
+<td style="text-align: left;">00217800</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">3</td>
+<td style="text-align: left;">Stanford University</td>
+<td style="text-align: left;">00130500</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">4</td>
+<td style="text-align: left;">University of Chicago (The)</td>
+<td style="text-align: left;">00177400</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">5</td>
+<td style="text-align: left;">Princeton University</td>
+<td style="text-align: left;">00262700</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">6</td>
+<td style="text-align: left;">Yale University</td>
+<td style="text-align: left;">00142600</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">7</td>
+<td style="text-align: left;">Univ of California Berkeley</td>
+<td style="text-align: left;">02470100</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">8</td>
+<td style="text-align: left;">Northwestern University</td>
+<td style="text-align: left;">00173900</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">8</td>
+<td style="text-align: left;">Northwestern University</td>
+<td style="text-align: left;">00174000</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">9</td>
+<td style="text-align: left;">Columbia University in the City of New York</td>
+<td style="text-align: left;">00270700</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">10</td>
+<td style="text-align: left;">University of Pennsylvania</td>
+<td style="text-align: left;">00337800</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">11</td>
+<td style="text-align: left;">New York University</td>
+<td style="text-align: left;">00278500</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">12</td>
+<td style="text-align: left;">Duke University</td>
+<td style="text-align: left;">00292000</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">13</td>
+<td style="text-align: left;">University of Michigan</td>
+<td style="text-align: left;">00232500</td>
+<td style="text-align: left;">TRUE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">13</td>
+<td style="text-align: left;">University of Michigan</td>
+<td style="text-align: left;">02458500</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">13</td>
+<td style="text-align: left;">University of Michigan</td>
+<td style="text-align: left;">02467100</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">13</td>
+<td style="text-align: left;">University of Michigan</td>
+<td style="text-align: left;">02480900</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">14</td>
+<td style="text-align: left;">Cornell University</td>
+<td style="text-align: left;">00271100</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">15</td>
+<td style="text-align: left;">University of California, Los Angeles</td>
+<td style="text-align: left;">00131500</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">16</td>
+<td style="text-align: left;">Brown University</td>
+<td style="text-align: left;">00340100</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">17</td>
+<td style="text-align: left;">Carnegie-Mellon University</td>
+<td style="text-align: left;">00324200</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">18</td>
+<td style="text-align: left;">University of Wisconsin - Madison</td>
+<td style="text-align: left;">00389500</td>
+<td style="text-align: left;">TRUE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">19</td>
+<td style="text-align: left;">Boston University</td>
+<td style="text-align: left;">00213000</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">19</td>
+<td style="text-align: left;">Boston University</td>
+<td style="text-align: left;">00213100</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">20</td>
+<td style="text-align: left;">University of Rochester</td>
+<td style="text-align: left;">00289400</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">21</td>
+<td style="text-align: left;">Dartmouth College</td>
+<td style="text-align: left;">00257300</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">22</td>
+<td style="text-align: left;">Vanderbilt University</td>
+<td style="text-align: left;">00349300</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">22</td>
+<td style="text-align: left;">Vanderbilt University</td>
+<td style="text-align: left;">00353500</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">23</td>
+<td style="text-align: left;">Georgetown University</td>
+<td style="text-align: left;">00144500</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">24</td>
+<td style="text-align: left;">University of California, San Diego</td>
+<td style="text-align: left;">00131700</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">25</td>
+<td style="text-align: left;">Washington University in St.&nbsp;Louis</td>
+<td style="text-align: left;">00252000</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">26</td>
+<td style="text-align: left;">Johns Hopkins University</td>
+<td style="text-align: left;">00207700</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">26</td>
+<td style="text-align: left;">Johns Hopkins University</td>
+<td style="text-align: left;">02078700</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">27</td>
+<td style="text-align: left;">University of Virginia</td>
+<td style="text-align: left;">00374500</td>
+<td style="text-align: left;">TRUE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">28</td>
+<td style="text-align: left;">William Marshall Rice University</td>
+<td style="text-align: left;">00360400</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">29</td>
+<td style="text-align: left;">Emory University</td>
+<td style="text-align: left;">00156400</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">30</td>
+<td style="text-align: left;">University of Notre Dame</td>
+<td style="text-align: left;">00184000</td>
+<td style="text-align: left;">FALSE</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>top30_institutions_pseo <span class="ot">&lt;-</span> top30_institutions_labeled <span class="sc">%&gt;%</span> <span class="fu">filter</span>(PSEO)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Only the following 3 institutions are represented in PSEO:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(top30_institutions_pseo <span class="sc">%&gt;%</span> <span class="fu">select</span>(Rank, University, institution, PSEO), <span class="at">caption =</span> <span class="st">"Peer Institutions with PSEO Data Available"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Peer Institutions with PSEO Data Available</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Rank</th>
+<th style="text-align: left;">University</th>
+<th style="text-align: left;">institution</th>
+<th style="text-align: left;">PSEO</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">13</td>
+<td style="text-align: left;">University of Michigan</td>
+<td style="text-align: left;">00232500</td>
+<td style="text-align: left;">TRUE</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">18</td>
+<td style="text-align: left;">University of Wisconsin - Madison</td>
+<td style="text-align: left;">00389500</td>
+<td style="text-align: left;">TRUE</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">27</td>
+<td style="text-align: left;">University of Virginia</td>
+<td style="text-align: left;">00374500</td>
+<td style="text-align: left;">TRUE</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<hr>
+</section>
+<section id="appendix-institutional-analysis" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-institutional-analysis">Appendix: Institutional Analysis</h2>
+<p>All institutions in the New York earnings data that are present in the PSEO data.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Get all unique institutions in the data</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>all_newyork_institutions <span class="ot">&lt;-</span> newyork_earnings <span class="sc">%&gt;%</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(institution) <span class="sc">%&gt;%</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>()</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Merge to get institution names</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>all_newyork_institutions <span class="ot">&lt;-</span> all_newyork_institutions <span class="sc">%&gt;%</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(institution_labels, <span class="at">by =</span> <span class="st">"institution"</span>)</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Display all institutions</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Total number of institutions in NY data:"</span>, <span class="fu">nrow</span>(all_newyork_institutions), <span class="st">"</span><span class="sc">\n\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Total number of institutions in NY data: 80 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(all_newyork_institutions, <span class="at">caption =</span> <span class="st">"All New York Institutions in PSEO Data"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>All New York Institutions in PSEO Data</caption>
+<colgroup>
+<col style="width: 8%">
+<col style="width: 51%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 7%">
+<col style="width: 7%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">institution</th>
+<th style="text-align: left;">label</th>
+<th style="text-align: left;">city</th>
+<th style="text-align: left;">institution_state</th>
+<th style="text-align: left;">inst_level</th>
+<th style="text-align: left;">statefips</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">36</td>
+<td style="text-align: left;">Institutions in New York</td>
+<td style="text-align: left;">NA</td>
+<td style="text-align: left;">NA</td>
+<td style="text-align: left;">S</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00268700</td>
+<td style="text-align: left;">CUNY Brooklyn College</td>
+<td style="text-align: left;">Brooklyn</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00268800</td>
+<td style="text-align: left;">City College of New York - CUNY</td>
+<td style="text-align: left;">New York</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00268900</td>
+<td style="text-align: left;">CUNY Hunter College</td>
+<td style="text-align: left;">New York</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00269000</td>
+<td style="text-align: left;">CUNY Queens College</td>
+<td style="text-align: left;">Flushing</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00269100</td>
+<td style="text-align: left;">CUNY Borough of Manhattan Community College</td>
+<td style="text-align: left;">New York</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00269200</td>
+<td style="text-align: left;">CUNY Bronx Community College</td>
+<td style="text-align: left;">Bronx</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00269300</td>
+<td style="text-align: left;">CUNY John Jay College of Criminal Justice</td>
+<td style="text-align: left;">New York</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00269400</td>
+<td style="text-align: left;">Kingsborough Commmunity College/CUNY</td>
+<td style="text-align: left;">Brooklyn</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00269600</td>
+<td style="text-align: left;">New York City College of Technology of the City University of New York</td>
+<td style="text-align: left;">Brooklyn</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00269700</td>
+<td style="text-align: left;">Queensborough Community College-CUNY</td>
+<td style="text-align: left;">Bayside</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00269800</td>
+<td style="text-align: left;">College of Staten Island/CUNY</td>
+<td style="text-align: left;">Staten Island</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00283500</td>
+<td style="text-align: left;">State University of New York at Albany</td>
+<td style="text-align: left;">Albany</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00283600</td>
+<td style="text-align: left;">Binghamton University</td>
+<td style="text-align: left;">Binghamton</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00283700</td>
+<td style="text-align: left;">State University of New York at Buffalo</td>
+<td style="text-align: left;">Buffalo</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00283800</td>
+<td style="text-align: left;">State University of New York at Stony Brook</td>
+<td style="text-align: left;">Stony Brook</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00283900</td>
+<td style="text-align: left;">State University of New York Downstate Medical Center</td>
+<td style="text-align: left;">Brooklyn</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00284000</td>
+<td style="text-align: left;">State University of New York Upstate Medical University</td>
+<td style="text-align: left;">Syracuse</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00284100</td>
+<td style="text-align: left;">State University of New York College at Brockport</td>
+<td style="text-align: left;">Brockport</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00284200</td>
+<td style="text-align: left;">SUNY College at Buffalo</td>
+<td style="text-align: left;">Buffalo</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00284300</td>
+<td style="text-align: left;">SUNY College at Cortland</td>
+<td style="text-align: left;">Cortland</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00284400</td>
+<td style="text-align: left;">SUNY at Fredonia</td>
+<td style="text-align: left;">Fredonia</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00284500</td>
+<td style="text-align: left;">SUNY College at Geneseo</td>
+<td style="text-align: left;">Geneseo</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00284600</td>
+<td style="text-align: left;">State University of New York at New Paltz</td>
+<td style="text-align: left;">New Paltz</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00284700</td>
+<td style="text-align: left;">State University of New York, College at Oneonta</td>
+<td style="text-align: left;">Oneonta</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00284800</td>
+<td style="text-align: left;">State University of New York at Oswego</td>
+<td style="text-align: left;">Oswego</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00284900</td>
+<td style="text-align: left;">State University of New York College at Plattsburgh</td>
+<td style="text-align: left;">Plattsburgh</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00285000</td>
+<td style="text-align: left;">State University of New York College at Potsdam</td>
+<td style="text-align: left;">Potsdam</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00285100</td>
+<td style="text-align: left;">SUNY College of Environment Science &amp; Forestry</td>
+<td style="text-align: left;">Syracuse</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00285300</td>
+<td style="text-align: left;">SUNY Maritime College</td>
+<td style="text-align: left;">Bronx</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00285400</td>
+<td style="text-align: left;">SUNY College of Technology at Alfred</td>
+<td style="text-align: left;">Alfred</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00285500</td>
+<td style="text-align: left;">State University of New York College of Technology at Canton</td>
+<td style="text-align: left;">Canton</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00285600</td>
+<td style="text-align: left;">SUNY College of Agriculture &amp; Technology at Cobleskill</td>
+<td style="text-align: left;">Cobleskill</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00285700</td>
+<td style="text-align: left;">SUNY College of Technology at Delhi</td>
+<td style="text-align: left;">Delhi</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00285800</td>
+<td style="text-align: left;">State University of New York at Farmingdale</td>
+<td style="text-align: left;">Farmingdale</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00285900</td>
+<td style="text-align: left;">SUNY College of Agriculture &amp; Technology at Morrisville</td>
+<td style="text-align: left;">Morrisville</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00286000</td>
+<td style="text-align: left;">Adirondack Community College - SUNY Office of Community Colleges</td>
+<td style="text-align: left;">Queensbury</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00286100</td>
+<td style="text-align: left;">Cayuga Community College - SUNY Office of Community College</td>
+<td style="text-align: left;">Auburn</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00286200</td>
+<td style="text-align: left;">SUNY Broome Community College</td>
+<td style="text-align: left;">Binghamton</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00286300</td>
+<td style="text-align: left;">Corning Community College - SUNY Office of Community Colleges</td>
+<td style="text-align: left;">Corning</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00286400</td>
+<td style="text-align: left;">Dutchess Community College</td>
+<td style="text-align: left;">Poughkeepsie</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00286600</td>
+<td style="text-align: left;">Fashion Institute of Technology</td>
+<td style="text-align: left;">New York</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00286700</td>
+<td style="text-align: left;">SUNY Fulton-Montgomery Community College</td>
+<td style="text-align: left;">Johnstown</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00286800</td>
+<td style="text-align: left;">Hudson Valley Community College</td>
+<td style="text-align: left;">Troy</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00286900</td>
+<td style="text-align: left;">Jamestown Community College</td>
+<td style="text-align: left;">Jamestown</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00287000</td>
+<td style="text-align: left;">Jefferson Community College</td>
+<td style="text-align: left;">Watertown</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00287100</td>
+<td style="text-align: left;">SUNY,Mohawk Valley Community College</td>
+<td style="text-align: left;">Utica</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00287200</td>
+<td style="text-align: left;">Monroe Community College</td>
+<td style="text-align: left;">Rochester</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00287300</td>
+<td style="text-align: left;">Nassau Community College</td>
+<td style="text-align: left;">Garden City</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00287400</td>
+<td style="text-align: left;">Niagara County Community College</td>
+<td style="text-align: left;">Sanborn</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00287500</td>
+<td style="text-align: left;">Onondaga Community College</td>
+<td style="text-align: left;">Syracuse</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00287600</td>
+<td style="text-align: left;">Orange County Community College</td>
+<td style="text-align: left;">Middletown</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00287700</td>
+<td style="text-align: left;">Rockland Community College</td>
+<td style="text-align: left;">Suffern</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00287800</td>
+<td style="text-align: left;">Suffolk County Community College</td>
+<td style="text-align: left;">Selden</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00287900</td>
+<td style="text-align: left;">Sullivan County Community College</td>
+<td style="text-align: left;">Loch Sheldrake</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00288000</td>
+<td style="text-align: left;">Ulster County Community College</td>
+<td style="text-align: left;">Stone Ridge</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00288100</td>
+<td style="text-align: left;">SUNY Westchester Community College</td>
+<td style="text-align: left;">Valhalla</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00475900</td>
+<td style="text-align: left;">CUNY York College</td>
+<td style="text-align: left;">Jamaica</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00476500</td>
+<td style="text-align: left;">CUNY Graduate School &amp; University Center</td>
+<td style="text-align: left;">New York</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00478800</td>
+<td style="text-align: left;">Herkimer County Community College - SUNY Office of Community Colleges</td>
+<td style="text-align: left;">Herkimer</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00678200</td>
+<td style="text-align: left;">Genesee Community College</td>
+<td style="text-align: left;">Batavia</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00678500</td>
+<td style="text-align: left;">Schenectady County Community College</td>
+<td style="text-align: left;">Schenectady</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00678700</td>
+<td style="text-align: left;">Clinton Community College</td>
+<td style="text-align: left;">Plattsburgh</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00678800</td>
+<td style="text-align: left;">Tompkins Cortland Community College</td>
+<td style="text-align: left;">Dryden</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00678900</td>
+<td style="text-align: left;">SUNY Columbia-Greene Community College</td>
+<td style="text-align: left;">Hudson</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00679100</td>
+<td style="text-align: left;">SUNY College at Purchase</td>
+<td style="text-align: left;">Purchase</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00702200</td>
+<td style="text-align: left;">CUNY Lehman College</td>
+<td style="text-align: left;">Bronx</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00710900</td>
+<td style="text-align: left;">SUNY College at Old Westbury</td>
+<td style="text-align: left;">Old Westbury</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00711100</td>
+<td style="text-align: left;">North Country Community College</td>
+<td style="text-align: left;">Saranac Lake</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00727300</td>
+<td style="text-align: left;">CUNY Bernard M. Baruch College</td>
+<td style="text-align: left;">New York</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00753200</td>
+<td style="text-align: left;">Finger Lakes Community College - SUNY Office of Community Colleges</td>
+<td style="text-align: left;">Canandaigua</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">00861100</td>
+<td style="text-align: left;">CUNY, Hostos Community College</td>
+<td style="text-align: left;">Bronx</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">00992900</td>
+<td style="text-align: left;">SUNY College of Optometry</td>
+<td style="text-align: left;">New York</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">01005100</td>
+<td style="text-align: left;">CUNY LaGuardia Community College</td>
+<td style="text-align: left;">Long Island City</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">01009700</td>
+<td style="text-align: left;">CUNY Medgar Evers College</td>
+<td style="text-align: left;">Brooklyn</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">01028600</td>
+<td style="text-align: left;">SUNY Empire State College</td>
+<td style="text-align: left;">Saratoga Springs</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">01068400</td>
+<td style="text-align: left;">Erie Community College</td>
+<td style="text-align: left;">Buffalo</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">01167800</td>
+<td style="text-align: left;">State University of New York Polytechnic Institute</td>
+<td style="text-align: left;">Utica</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">03191300</td>
+<td style="text-align: left;">CUNY School of Law ‘(The)’</td>
+<td style="text-align: left;">Long Island City</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">04210100</td>
+<td style="text-align: left;">Stella and Charles Guttman Community College</td>
+<td style="text-align: left;">New York</td>
+<td style="text-align: left;">NY</td>
+<td style="text-align: left;">I</td>
+<td style="text-align: left;">36</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
